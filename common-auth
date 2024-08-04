@@ -22,5 +22,5 @@ auth	requisite			pam_deny.so
 # since the modules above will each just jump around
 auth	required			pam_permit.so
 # and here are more per-package modules (the "Additional" block)
-auth	optional			pam_mount.so
+auth	optional			pam_mount.so  disable_interactive
 # end of pam-auth-update config
