@@ -1,6 +1,6 @@
 # Guide: How to encrypt home folder in Linux with a FIDO2 device with  gocryptfs (Debian)
 
-Most of this guide is heavily  inspired from [Lukeus_Maximus's guide][1] on how to encrypted ones home folder with gocryptfs on Arch Linux, but I was not able to follow there guide as I wanted to do *passwordless* encryption at login. A [Github issus](https://github.com/rfjakob/gocryptfs/issues/281) opened by [xelra](https://github.com/xelra) discussed and concluded that a Yubicos *static password* was sufficent for them, but not or me! I have therefore made this guide.
+Most of this guide is heavily  inspired from [Lukeus_Maximus's guide][1] on how to encrypted ones home folder with gocryptfs on Arch Linux, but I was not able to follow there guide as I wanted to do *passwordless* encryption at login. A [Github issus](https://github.com/rfjakob/gocryptfs/issues/281) opened by [xelra](https://github.com/xelra) discussed and concluded that a Yubicos *static password* was sufficent for them, but not for me! I have therefore made this guide.
 
 It is recommended that this guide is followed when Debian have just been installed. 
 
