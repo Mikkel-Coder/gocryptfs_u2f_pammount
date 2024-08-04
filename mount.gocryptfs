@@ -1,0 +1,30 @@
+#!/bin/bash
+
+MOUNT_POINT="/home/mikkel"
+ENCRYPTED_PATH="/home/mikkel.cipher"
+
+# Check if the fido2-token command is available
+if ! command -v fido2-token &> /dev/null; then
+  ehco "fido2-token could not be found. Please install fido2-tools."
+  exit 1
+fi
+
+# List all available FIDO2 tokens
+FIDO2_TOKENS=$(fido2-token -L 2>/dev/null)
+
+# Extract /dev/hidrawX from the FIDO2 tokens
+FIDO2_DEVICES=$(echo "$FIDO2_TOKENS" | grep -oP '/dev/hidraw\d+')
+
+# Check if any FIDO2 device was found
+if [ -z "$FIDO2_DEVICES" ]; then
+  echo "No /dev/hidraw* devices was found."
+  exit 1
+fi
+
+# Use the first available FIDO2 device
+FIDO2_DEVICE=$(echo "$FIDO2_DEVICES" | head -n 1)
+
+# Now we can mount!
+/usr/bin/gocryptfs -nodev -allow_other -fido2 "$FIDO2_DEVICE" "$ENCRYPTED_PATH" "$MOUNT_POINT"
+
+exit 0
