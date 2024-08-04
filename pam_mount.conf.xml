@@ -41,12 +41,10 @@
 <mkmountpoint enable="1" remove="true" />
 
 <volume
-  user="mikkel"
-  noroot="0"
+  user="your_username_here"
   fstype="gocryptfs"
   cipher="cipher"
-  options="nodev,nosuid,allow_other"
-  path="/home/mikkel.cipher"
-  mountpoint="/home/mikkel" />
+  path="/home/%(USER).cipher"
+  mountpoint="/home/%(USER)" />
 
 </pam_mount>
