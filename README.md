@@ -152,12 +152,68 @@ If the user logs in without their home directory mounted, their session will not
     # end of pam-auth-update config
     ```
 
-    Logging in as the user will now cause the encrypted filesystem to be mounted transparently. Logging out will correspondingly unmount the encrypted filesystem. 
+    Logging in as the user will now cause the encrypted filesystem to be mounted transparently. Logging out will correspondingly unmount the encrypted filesystem.
+
+   Remember to disable the root user, if needed.
 
 ### 4 Securely delete the unencrypted home directory. [source][1]
 If the unencrypted home folder was not empty, the user's home directory was then moved to *$user*.old earlier. These unencrypted files need removing securely; otherwise the encryption protecting the data can be easily avoided by just looking in the other folder. These older files need deleting securely as well - simply performing `rm -rf $user.old` will not remove the file from disk completely, it will just remove the reference to it.  
 
 Multiple tools exist that claim to delete files securely (most notably shred) but these come into conflict with the journaling functions of jornaling filesystems (such as Ext4). The secure deletion tool is trying to make it so that you can't recover your files whilst the journaled filesystem is trying to make sure that you can recover them. 
 
+### 4. (Optional) PAM authentication via u2f only [source][3]
+One can go completely passwordless by using the `pam_u2f` module. Install it by:
+```
+# sudo apt install libpam-u2f
+```
+
+1. Configuring U2F keys.
+    Then insert your U2F key and run the following command as the user:
+    ```
+    # pamu2fcfg > u2f_keys
+    ```
+    You may have to touch your key.
+
+    Add additional keys, such as backups keys by:
+    ```
+    # pamu2fcfg -n >> u2f_keys
+    ```
+
+    As the users home directory is encrypted, the u2f_keys must be placed elsewhere. I will be using  `/etc/Yubico/`:
+    ```
+    # sudo mv  u2f_keys /etc/Yubico/
+    ```
+    > **Warning:** Please note that once you modify the /etc/pam.d/sudo file to require the YubiKey if you were to lose or misplace the YubiKey you will not be able to modify or change the file to remove the YubiKey requirement. [source][3]
+
+    > **Warning:** By enabling using this process if the files are not readable by users it will cause you to be locked out of your system. The most common cause is encrypted /home/ folder which will not be readable by root. This will cause you to be locked out once you reset the machine. [source][3]
+
+2. Configuring PAM
+    Edit `/etc/pam.d/common-auth` to use `pam_u2f.so` instead of `pam_unix.so`:
+    ```
+    ....
+    # here are the per-package modules (the "Primary" block)
+    auth	[success=1 default=ignore]	pam_u2f.so authfile=/etc/Yubico/u2f_keys cue 
+    ....
+    ```
+    You can force pin usage by append it to the `pam_u2f.so` like:
+    ```
+    ....
+    auth	[success=1 default=ignore]	pam_u2f.so authfile=/etc/Yubico/u2f_keys cue pinverification=1
+    ....
+    ``` 
+    For more options, please read the man page for pam_u2f: `man pam_u2f`
+
+    > **Note:** You can add more authentication methods such as fingerprints by changing the order. Then update the `success`. It is used to tell pam to skip the next *X* `auth` modules if authentication was successful. For example:
+    ```
+    ...
+    auth	[success=2 default=ignore]	pam_fprintd.so max-tries=1 timeout=10
+    auth	[success=1 default=ignore]	pam_u2f.so authfile=/etc/Yubico/u2f_keys cue pinverification=1
+    ...
+    ``` 
+
+    If u2f authentication should also be required to change user secrets, such as passwords for other users, then edit `/etc/pam.d/common-passwd` to be the same as the *Primary* block from `/etc/pam.d/common-auth`.
+
+
 [1]: https://wiki.archlinux.org/title/User:Lukeus_Maximus "Home directory encryption"
 [2]: https://developers.yubico.com/libfido2/Manuals/fido2-token.html "Yubico Docs, fido2-token"
+[3]: https://support.yubico.com/hc/en-us/articles/360016649099-Ubuntu-Linux-Login-Guide-U2F "Ubuntu Linux Login Guide - U2F"
