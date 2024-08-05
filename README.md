@@ -1,75 +1,75 @@
-# Guide: How to encrypt home folder in Linux with a FIDO2 device with  gocryptfs (Debian)
+# Guide: How to Encrypt the Home Folder in Linux with a FIDO2 Device Using gocryptfs (Debian)
 
-Most of this guide is heavily  inspired from [Lukeus_Maximus's guide][1] on how to encrypted ones home folder with gocryptfs on Arch Linux, but I was not able to follow there guide as I wanted to do *passwordless* encryption at login. A [Github issus](https://github.com/rfjakob/gocryptfs/issues/281) opened by [xelra](https://github.com/xelra) discussed and concluded that a Yubicos *static password* was sufficent for them, but not for me! I have therefore made this guide.
+This guide is adapted from [Lukeus_Maximus's guide][1] on encrypting a home folder with gocryptfs on Arch Linux. However, I wanted to achieve *passwordless* encryption at login on Debian, which is not covered in their guide. A [GitHub issue](https://github.com/rfjakob/gocryptfs/issues/281) raised by [xelra](https://github.com/xelra) concluded that a static password on a Yubico device was sufficient for them, but this approach did not work for me. Therefore, I created this guide.
 
-It is recommended that this guide is followed when Debian have just been installed. 
+It is recommended to follow this guide after having installed Debian.
 
-#### Install dependencies
+#### Install Dependencies
+```bash
+apt install gocryptfs fido2-tools libu2f-host0 libpam-mount
 ```
-# apt install gocryptfs fido2-tools libu2f-host0 libpam-mount
-```
 
-### 1. Creating the new encrypted filesystem. [source][1]
+### 1. Creating the New Encrypted Filesystem. [source][1]
 1. As root, create the directory `/home/$user.cipher`:
-    ```
-    # user="your_username_here"
-    # mkdir /home/$user.cipher
+    ```bash
+    user="your_username_here"
+    mkdir /home/$user.cipher
     ```
 
-2. Change its permissions, owner, and group so that it matches those of the user's existing home directory: 
-    ```
-    # chown $user /home/$user.cipher
-    # chgrp $user /home/$user.cipher
-    # chmod 700 /home/$user.cipher
+2. Change its permissions, owner, and group to match those of the user's existing home directory:
+    ```bash
+    chown $user /home/$user.cipher
+    chgrp $user /home/$user.cipher
+    chmod 700 /home/$user.cipher
     ```
 
 3. Now we need to determine what FIDO2 device we can use to create the filesystem: [source][2]
-    ```
-    # fido2-token -L
+    ```bash
+    fido2-token -L
     ```
 
-4. Then set up the encrypted filesystem using gocryptfs on the `/home/$user.cipher` directory using the FIDO2 token device path: 
+4. Then set up the encrypted filesystem using gocryptfs on the `/home/$user.cipher` directory with the FIDO2 token device path:
+    ```bash
+    gocryptfs -fido2 /dev/hidraw* -init /home/$user.cipher
     ```
-    # gocryptfs -fido2 /dev/hidraw* -init /home/$user.cipher
-    ```
-    Replacing `/dev/hidraw*` with your FIDO2 device path like: `/dev/hidraw2` You may have to touch your token. 
+    Replace `/dev/hidraw*` with your FIDO2 device path, e.g., `/dev/hidraw2`. You may need to touch your token.
 
-    > **Remember to store the master key somewhere secure. It can be used to recover the filesystem if the FIDO2 device is lost.**
+    > **Note:** Remember to store the master key somewhere secure. It can be used to recover the filesystem if the FIDO2 device is lost.
 
-    If the user's home directory is empty, you can skip to configure PAM for auto-mounting at login.
+    If the user's home directory is empty, you can skip to configuring PAM for auto-mounting at login.
 
-### 2. Moving existing home directory files to encrypted filesystem. [source][1]
+### 2. Move Existing Home Directory Files to the Encrypted Filesystem. [source][1]
 You will need to mount the newly created encrypted filesystem and copy the entirety of the user's home directory into it. As each file is copied in, it is encrypted by gocryptfs. To avoid any programs changing files in the user's home directory in the middle of the copy operation, the user *must* be logged out. Then, *as root*: 
 
 1. Create the user's new home directory:
-    ```
-    # mv /home/$user /home/$user.old
-    # mkdir -m 700 /home/$user
-    # chown $user /home/$user
-    # chgrp $user /home/$user
+    ```bash
+    mv /home/$user /home/$user.old
+    mkdir -m 700 /home/$user
+    chown $user /home/$user
+    chgrp $user /home/$user
     ```
 
 2. Mount the encrypted filesystem at the new home directory using your FIDO2 token:  
     You may have to touch your token.
-    ```
-    # gocryptfs -fido2 /dev/hidraw* /home/$user.cipher /home/$user
+    ```bash
+    gocryptfs -fido2 /dev/hidraw* /home/$user.cipher /home/$user
     ```
 
 3. Copy all home directory files into the mounted filesystem using rsync:
+    ```bash
+    rsync -av /home/$user.old/ /home/$user
     ```
-    # rsync -av /home/$user.old/ /home/$user
-    ```
-    You can install rsync with:
-    ```
-    # apt install rsync
+    Install rsync if necessary:
+    ```bash
+    apt install rsync
     ```
 
 4. Unmount the filesystem:
-    ```
-    # fusermount -u /home/$user
+    ```bash
+    fusermount -u /home/$user
     ```
 
-### 3. Configure PAM for auto-mounting at login
+### 3. Configure PAM for Auto-Mounting at Login
 If the user logs in without their home directory mounted, their session will not benefit from any shell profile files or any programs configured to run at login. Until the directory is mounted with `gocryptfs`, the user's home directory will be empty. Generally then, it is highly desirable to have the encrypted home directory mount itself when the user logs in so that those things happen properly.
 
 1. Configure FUSE:  
@@ -95,9 +95,10 @@ If the user logs in without their home directory mounted, their session will not
 
     #mount_max = 1000
     ```
+
 2. Configure `pam_mount.conf`: [source][1]  
-    In `/etc/security/pam_mount.conf.xml` add a new volume tag at the end of the file, and then configure then logout and umount tags. Please see **[INSERT GITHUB EXAMPLE REF OF `pam_mount.conf.xml]**. Remember to change the username.
-    ```
+    In `/etc/security/pam_mount.conf.xml`, add a new volume tag at the end of the file. Configure the logout and umount tags. Replace `your_username_here` with the actual username:
+    ```xml
     ...
 
     <!-- requires ofl from hxtools to be present -->
@@ -118,23 +119,23 @@ If the user logs in without their home directory mounted, their session will not
     </pam_mount>
     ```
 
-3. Configure pam_mount for mounting gocryptfs.  
-    Download the mounting script from Github:
+3. Configure pam_mount for mounting gocryptfs:
+    Download the mounting script from GitHub:
+    ```bash
+    curl -o /usr/sbin/mount.gocryptfs http://github.com/INSERT_PATH_HERE
     ```
-    # curl -o /usr/sbin/mount.gocryptfs http://github.com/INSERT_PATH_HERE
-    ``` 
-    Edit `mount.gocryptfs` with the users home directory and cipher.
+    Edit `mount.gocryptfs` to set the home directory and cipher paths:
     ```
     MOUNT_POINT="/home/your_username_here"
     ENCRYPTED_PATH="/home/your_username_here.cipher"
     ...
     ```
     And make it executable so that pam_mount can run it.
-    ```
+    ```bash
     chmod +x /usr/sbin/mount.gocryptfs
     ```
 
-4. Configure PAM.  
+4. Configure PAM:
     Edit `/etc/pam.d/common-auth` and append the arguments `disable_pam_password` and `disable_interactive` to `pam_mount.so`:
     ```
     ...
@@ -143,7 +144,8 @@ If the user logs in without their home directory mounted, their session will not
     auth	optional			pam_mount.so  disable_pam_password disable_interactive
     # end of pam-auth-update config
     ```
-    The do the same edit to `/etc/pam.d/common-session`:
+
+    Make the same edit to `/etc/pam.d/common-session`:
     ```
     # and here are more per-package modules (the "Additional" block)
     session	required	pam_unix.so 
@@ -152,36 +154,40 @@ If the user logs in without their home directory mounted, their session will not
     # end of pam-auth-update config
     ```
 
-    Logging in as the user will now cause the encrypted filesystem to be mounted transparently. Logging out will correspondingly unmount the encrypted filesystem.
+    Logging in as the user will now mount the encrypted filesystem transparently. Logging out will unmount it.
 
-   Remember to disable the root user, if needed.
+    Remember to disable the root user if necessary.
+    ```bash
+    sudo usermod --expiredate 1 root
+    ```
 
-### 4 Securely delete the unencrypted home directory. [source][1]
+### 4 Securely Delete the Unencrypted Home Directory. [source][1]
 If the unencrypted home folder was not empty, the user's home directory was then moved to *$user*.old earlier. These unencrypted files need removing securely; otherwise the encryption protecting the data can be easily avoided by just looking in the other folder. These older files need deleting securely as well - simply performing `rm -rf $user.old` will not remove the file from disk completely, it will just remove the reference to it.  
 
 Multiple tools exist that claim to delete files securely (most notably shred) but these come into conflict with the journaling functions of jornaling filesystems (such as Ext4). The secure deletion tool is trying to make it so that you can't recover your files whilst the journaled filesystem is trying to make sure that you can recover them. 
 
-### 4. (Optional) PAM authentication via u2f only [source][3]
+### 5. (Optional) PAM authentication via u2f only [source][3]
 One can go completely passwordless by using the `pam_u2f` module. Install it by:
-```
-# sudo apt install libpam-u2f
-```
 
-1. Configuring U2F keys.
-    Then insert your U2F key and run the following command as the user:
+1. Install `libpam-u2f`:
+    ```bash
+    sudo apt install libpam-u2f
     ```
-    # pamu2fcfg > u2f_keys
+
+2. Configure U2F keys:
+    Insert your U2F key and run the following command as the user:
+    ```bash
+    pamu2fcfg > u2f_keys
     ```
     You may have to touch your key.
-
     Add additional keys, such as backups keys by:
-    ```
-    # pamu2fcfg -n >> u2f_keys
+    ```bash
+    pamu2fcfg -n >> u2f_keys
     ```
 
-    As the users home directory is encrypted, the u2f_keys must be placed elsewhere. I will be using  `/etc/Yubico/`:
-    ```
-    # sudo mv  u2f_keys /etc/Yubico/
+    As the users home directory is encrypted, the u2f_keys must be placed elsewhere such as `/etc/Yubico/`:
+    ```bash
+    sudo mv u2f_keys /etc/Yubico/
     ```
     > **Warning:** Please note that once you modify the /etc/pam.d/sudo file to require the YubiKey if you were to lose or misplace the YubiKey you will not be able to modify or change the file to remove the YubiKey requirement. [source][3]
 
@@ -195,24 +201,24 @@ One can go completely passwordless by using the `pam_u2f` module. Install it by:
     auth	[success=1 default=ignore]	pam_u2f.so authfile=/etc/Yubico/u2f_keys cue 
     ....
     ```
-    You can force pin usage by append it to the `pam_u2f.so` like:
+
+    To force PIN usage, append `pinverification=1`:
     ```
     ....
     auth	[success=1 default=ignore]	pam_u2f.so authfile=/etc/Yubico/u2f_keys cue pinverification=1
     ....
-    ``` 
-    For more options, please read the man page for pam_u2f: `man pam_u2f`
+    ```
 
-    > **Note:** You can add more authentication methods such as fingerprints by changing the order. Then update the `success`. It is used to tell pam to skip the next *X* `auth` modules if authentication was successful. For example:
+    For more options, refer to the `pam_u2f` man page: `man pam_u2f`.
+
+    You can add more authentication methods, such as fingerprints, by changing the order. Then update the `success`. It is used to tell pam to skip the next *X* `auth` modules if authentication was successful. For example:
     ```
     ...
     auth	[success=2 default=ignore]	pam_fprintd.so max-tries=1 timeout=10
     auth	[success=1 default=ignore]	pam_u2f.so authfile=/etc/Yubico/u2f_keys cue pinverification=1
     ...
     ``` 
-
-    If u2f authentication should also be required to change user secrets, such as passwords for other users, then edit `/etc/pam.d/common-passwd` to be the same as the *Primary* block from `/etc/pam.d/common-auth`.
-
+    To require U2F authentication for changing user secrets, such as passwords for other users, edit `/etc/pam.d/common-passwd` to be the same as the *Primary* block from `/etc/pam.d/common-auth`.
 
 [1]: https://wiki.archlinux.org/title/User:Lukeus_Maximus "Home directory encryption"
 [2]: https://developers.yubico.com/libfido2/Manuals/fido2-token.html "Yubico Docs, fido2-token"
