@@ -122,7 +122,7 @@ If the user logs in without their home directory mounted, their session will not
 3. Configure pam_mount for mounting gocryptfs:
     Download the mounting script from GitHub:
     ```bash
-    curl -o /usr/sbin/mount.gocryptfs http://github.com/INSERT_PATH_HERE
+    curl -o /usr/sbin/mount.gocryptfs https://raw.githubusercontent.com/Mikkel-Coder/gocryptfs_u2f_pammount/main/mount.gocryptfs
     ```
     Edit `mount.gocryptfs` to set the home directory and cipher paths:
     ```
