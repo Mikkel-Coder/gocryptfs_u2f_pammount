@@ -135,7 +135,7 @@ If the user logs in without their home directory mounted, their session will not
     chmod +x /usr/sbin/mount.gocryptfs
     ```
 
-4. Configure PAM:
+4. Configure PAM:  
     Edit `/etc/pam.d/common-auth` and append the arguments `disable_pam_password` and `disable_interactive` to `pam_mount.so`:
     ```
     ...
@@ -174,7 +174,7 @@ One can go completely passwordless by using the `pam_u2f` module. Install it by:
     sudo apt install libpam-u2f
     ```
 
-2. Configure U2F keys:
+2. Configure U2F keys:  
     Insert your U2F key and run the following command as the user:
     ```bash
     pamu2fcfg > u2f_keys
@@ -193,7 +193,7 @@ One can go completely passwordless by using the `pam_u2f` module. Install it by:
 
     > **Warning:** By enabling using this process if the files are not readable by users it will cause you to be locked out of your system. The most common cause is encrypted /home/ folder which will not be readable by root. This will cause you to be locked out once you reset the machine. [source][3]
 
-2. Configuring PAM
+3. Configuring PAM  
     Edit `/etc/pam.d/common-auth` to use `pam_u2f.so` instead of `pam_unix.so`:
     ```
     ....
