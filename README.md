@@ -124,7 +124,7 @@ If the user logs in without their home directory mounted, their session will not
     ```bash
     curl -o /usr/sbin/mount.gocryptfs https://raw.githubusercontent.com/Mikkel-Coder/gocryptfs_u2f_pammount/main/mount.gocryptfs
     ```
-    Edit `mount.gocryptfs` to set the home directory and cipher paths:
+    Edit `/usr/sbin/mount.gocryptfs` to set the home directory and cipher paths:
     ```
     MOUNT_POINT="/home/your_username_here"
     ENCRYPTED_PATH="/home/your_username_here.cipher"
