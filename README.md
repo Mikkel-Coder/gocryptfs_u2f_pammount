@@ -1,35 +1,37 @@
 # Guide: How to Encrypt the Home Folder in Linux with a FIDO2 Device Using gocryptfs (Debian)
 
+> **WARNING:** Because gocryptfs operates in user space, gocryptfs WILL FAIL to function correctly under heavy I/O load, such as when using ccache for compilation or creating/reading a large number of files. This is likley due to process starvation causing it to fail. When this happens, the error "Operation not permitted" WILL occur. Perhaps consider using kernel space disk encryption [LUKS][4] instead.
+
 This guide is adapted from [Lukeus_Maximus's guide][1] on encrypting a home folder with gocryptfs on Arch Linux. However, I wanted to achieve *passwordless* encryption at login on Debian, which is not covered in their guide. A [GitHub issue](https://github.com/rfjakob/gocryptfs/issues/281) raised by [xelra](https://github.com/xelra) concluded that a static password on a Yubico device was sufficient for them, but this approach did not work for me. Therefore, I created this guide.
 
 It is recommended to follow this guide after having installed Debian.
 
 #### Install Dependencies
-```bash
+```sh
 apt install gocryptfs fido2-tools libu2f-host0 libpam-mount
 ```
 
 ### 1. Creating the New Encrypted Filesystem. [source][1]
 1. As root, create the directory `/home/$user.cipher`:
-    ```bash
+    ```sh
     user="your_username_here"
     mkdir /home/$user.cipher
     ```
 
 2. Change its permissions, owner, and group to match those of the user's existing home directory:
-    ```bash
+    ```sh
     chown $user /home/$user.cipher
     chgrp $user /home/$user.cipher
     chmod 700 /home/$user.cipher
     ```
 
 3. Now we need to determine what FIDO2 device we can use to create the filesystem: [source][2]
-    ```bash
+    ```sh
     fido2-token -L
     ```
 
 4. Then set up the encrypted filesystem using gocryptfs on the `/home/$user.cipher` directory with the FIDO2 token device path:
-    ```bash
+    ```sh
     gocryptfs -fido2 /dev/hidraw* -init /home/$user.cipher
     ```
     Replace `/dev/hidraw*` with your FIDO2 device path, e.g., `/dev/hidraw2`. You may need to touch your token.
@@ -42,7 +44,7 @@ apt install gocryptfs fido2-tools libu2f-host0 libpam-mount
 You will need to mount the newly created encrypted filesystem and copy the entirety of the user's home directory into it. As each file is copied in, it is encrypted by gocryptfs. To avoid any programs changing files in the user's home directory in the middle of the copy operation, the user *must* be logged out. Then, *as root*: 
 
 1. Create the user's new home directory:
-    ```bash
+    ```sh
     mv /home/$user /home/$user.old
     mkdir -m 700 /home/$user
     chown $user /home/$user
@@ -51,21 +53,21 @@ You will need to mount the newly created encrypted filesystem and copy the entir
 
 2. Mount the encrypted filesystem at the new home directory using your FIDO2 token:  
     You may have to touch your token.
-    ```bash
+    ```sh
     gocryptfs -fido2 /dev/hidraw* /home/$user.cipher /home/$user
     ```
 
 3. Copy all home directory files into the mounted filesystem using rsync:
-    ```bash
+    ```sh
     rsync -av /home/$user.old/ /home/$user
     ```
     Install rsync if necessary:
-    ```bash
+    ```sh
     apt install rsync
     ```
 
 4. Unmount the filesystem:
-    ```bash
+    ```sh
     fusermount -u /home/$user
     ```
 
@@ -121,7 +123,7 @@ If the user logs in without their home directory mounted, their session will not
 
 3. Configure pam_mount for mounting gocryptfs:
     Download the mounting script from GitHub:
-    ```bash
+    ```sh
     curl -o /usr/sbin/mount.gocryptfs https://raw.githubusercontent.com/Mikkel-Coder/gocryptfs_u2f_pammount/main/mount.gocryptfs
     ```
     Edit `/usr/sbin/mount.gocryptfs` to set the home directory and cipher paths:
@@ -131,7 +133,7 @@ If the user logs in without their home directory mounted, their session will not
     ...
     ```
     And make it executable so that pam_mount can run it.
-    ```bash
+    ```sh
     chmod +x /usr/sbin/mount.gocryptfs
     ```
 
@@ -156,8 +158,8 @@ If the user logs in without their home directory mounted, their session will not
 
     Logging in as the user will now mount the encrypted filesystem transparently. Logging out will unmount it.
 
-    Remember to disable the root user if necessary.
-    ```bash
+    Remember to disable the root user if necessary. Some applications may indirectly depend on root user being active.
+    ```sh
     sudo usermod --expiredate 1 root
     ```
 
@@ -170,23 +172,23 @@ Multiple tools exist that claim to delete files securely (most notably shred) bu
 One can go completely passwordless by using the `pam_u2f` module. Install it by:
 
 1. Install `libpam-u2f`:
-    ```bash
+    ```sh
     sudo apt install libpam-u2f
     ```
 
 2. Configure U2F keys:  
     Insert your U2F key and run the following command as the user:
-    ```bash
+    ```sh
     pamu2fcfg > u2f_keys
     ```
     You may have to touch your key.
     Add additional keys, such as backups keys by:
-    ```bash
+    ```sh
     pamu2fcfg -n >> u2f_keys
     ```
 
     As the users home directory is encrypted, the u2f_keys must be placed elsewhere such as `/etc/Yubico/`:
-    ```bash
+    ```sh
     sudo mv u2f_keys /etc/Yubico/
     ```
     > **Warning:** Please note that once you modify the /etc/pam.d/sudo file to require the YubiKey if you were to lose or misplace the YubiKey you will not be able to modify or change the file to remove the YubiKey requirement. [source][3]
@@ -223,3 +225,4 @@ One can go completely passwordless by using the `pam_u2f` module. Install it by:
 [1]: https://wiki.archlinux.org/title/User:Lukeus_Maximus "Home directory encryption"
 [2]: https://developers.yubico.com/libfido2/Manuals/fido2-token.html "Yubico Docs, fido2-token"
 [3]: https://support.yubico.com/hc/en-us/articles/360016649099-Ubuntu-Linux-Login-Guide-U2F "Ubuntu Linux Login Guide - U2F"
+[4]: https://en.wikipedia.org/wiki/Linux_Unified_Key_Setup "Wikipedia - LUKS"
